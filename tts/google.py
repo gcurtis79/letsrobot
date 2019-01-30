@@ -34,7 +34,6 @@ def googleSay(message):
 
 
 def setLang(command, args):
-    print("lang command triggered: %s" % (command))
     global google_language
     if extended_command.is_authed(args['name']) >= 1: # Moderator or owner
         if len(command) == 2:
