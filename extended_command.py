@@ -7,7 +7,7 @@ import logging
 
 log = logging.getLogger('LR.extended_command')
 
-# TODO 
+# TODO
 # If I pull the send_video stuff into controller, the ability to restart the ffmpeg process would
 # be useful
 
@@ -61,7 +61,7 @@ robot_id = None
 api_key = None
 stationary = None
 exclusive = False
-exclusive_mods = False 
+exclusive_mods = False
 exclusive_user = ''
 banned=[]
 mods=[]
@@ -73,7 +73,7 @@ def setup(robot_config):
     global robot_id
     global api_key
     global buttons_json
-    
+
     owner = robot_config.get('robot', 'owner')
     robot_id = robot_config.get('robot', 'robot_id')
 
@@ -81,7 +81,7 @@ def setup(robot_config):
         api_key = robot_config.get('robot', 'api_key')
         if api_key == "":
             api_key = None
-    
+
     mods = networking.getOwnerDetails(owner)['moderators']
 #    mods = networking.getOwnerDetails(owner)['robocaster']['moderators']
     if robot_config.has_option('misc', 'global_mods'):
@@ -102,7 +102,7 @@ def is_authed(user):
 def add_command(command, function):
     global commands
     commands[command] = function
-    
+
 def anon_handler(command, args):
     global anon_control
 
@@ -141,7 +141,7 @@ def anon_handler(command, args):
 def whitelist_handler(command, args):
     global whiteList
     global whiteListCommand
-    
+
     if len(command) > 2:
         if is_authed(args['name']) == 2: # Owner
             user = command[2]
@@ -193,13 +193,13 @@ def exclusive_handler(command, args):
 
 def ban_handler(command, args):
     global banned
-    
+
     if len(command) > 1:
         user = command[1]
         if is_authed(args['name']): # Moderator
             banned.append(user)
             log.info("%s added %s to ban list", args['name'], user)
-            tts.mute_user_tts(user)            
+            tts.mute_user_tts(user)
 
 def unban_handler(command, args):
     global banned
@@ -210,7 +210,7 @@ def unban_handler(command, args):
             if user in banned:
                 banned.remove(user)
                 log.info("%s removed %s from ban list", args['name'], user)
-                tts.unmute_user_tts(user)            
+                tts.unmute_user_tts(user)
 
 def timeout_handler(command, args):
     global banned
@@ -221,16 +221,16 @@ def timeout_handler(command, args):
             banned.append(user)
             schedule.single_task(5, untimeout_user, user)
             log.info("%s added %s to timeout list", args['name'], user)
-            tts.mute_user_tts(user)            
-            
-    
+            tts.mute_user_tts(user)
+
+
 def untimeout_user(user):
     global banned
 
-    if user in banned:  
+    if user in banned:
         banned.remove(user)
         log.info("%s timeout expired", user)
-        tts.unmute_user_tts(user)            
+        tts.unmute_user_tts(user)
 
 
 def untimeout_handler(command, args):
@@ -242,24 +242,24 @@ def untimeout_handler(command, args):
             if user in banned:
                 banned.remove(user)
                 log.info("%s removed %s from timeout list", args['name'], user)
-                tts.unmute_user_tts(user)            
-    
+                tts.unmute_user_tts(user)
+
 
 def public_mode_handler(command, args):
     if len(command) > 1:
         if api_key != None:
             if is_authed(args['name']) == 2: # Owner
                 if command[1] == 'on':
-                    log.info("Owner enabled private mode")
+                    log.info("Owner enabled public mode")
                     robot_util.setPrivateMode(True, robot_id, api_key)
                 elif command[1] == 'off':
-                    log.info("Owner disabled private mode")
+                    log.info("Owner disabled public mode")
                     robot_util.setPrivateMode(False, robot_id, api_key)
-    
+
 def devmode_handler(command, args):
     global dev_mode
     global dev_mode_mods
-   
+
     if len(command) > 1:
         if is_authed(args['name']) == 2: # Owner
             if command[1] == 'on':
@@ -282,7 +282,7 @@ def devmode_handler(command, args):
 
 #TODO : Since audio / video has been integrated into the server, this should
 # probably be updated to mute the mic directly, rather than just doing it on
-# the server settings. 
+# the server settings.
 def mic_handler(command, args):
     if is_authed(args['name']) == 1: # Owner
         if len(command) > 1:
@@ -386,12 +386,12 @@ def handler(args):
 # TODO : This will not work with robot names with spaces, update it to split on ']'
 # [1:]
 
-    try:	
+    try:
         command = command.split(']')[1:][0].split(' ')[1:]
         log.debug("command : %s", command)
     except IndexError: # catch empty messages
         return
-    
+
     if command != None:
         if command[0] in commands:
             commands[command[0]](command, args)
@@ -401,32 +401,32 @@ def handler(args):
 def move_auth(args):
     user = args['user']
     anon = args['anonymous']
-    
+
     # Check if stationary mode is enabled
     if stationary:
         direction = args['command']
         if direction == 'F' or direction == 'B':
             log.debug("No forward for you.....")
-            return 
+            return
 
     # Check if command is in the whitelist required commands
     if args['command'] in whiteListCommand:
         if user not in whiteList:
             log.debug("%s not authed for command %s" % (user, args['command']))
-            return    
+            return
 
     # check if exclusive control is enabled
     if exclusive:
         if exclusive_mods:
             if user not in mods:
-                if (user != exclusive_user) and (user != owner): 
+                if (user != exclusive_user) and (user != owner):
                     log.debug("%s not authed for exclusive control", user)
                     return
-        if (user != exclusive_user) and (user != owner): 
+        if (user != exclusive_user) and (user != owner):
             log.debug("%s not authed for exclusive control", user)
             return
 
-               
+
     if anon_control == False and anon:
         return
     elif dev_mode_mods:
@@ -441,5 +441,5 @@ def move_auth(args):
             return
     elif user not in banned: # Check for banned and timed out users
         move_handler(args)
- 
+
     return

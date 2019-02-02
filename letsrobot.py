@@ -212,11 +212,12 @@ def configWifiLogin(secretKey):
 
 # TODO changeVolumeNormal() and handleLoudCommand() dont belong here, should
 # be in a custom handler
+
 def changeVolumeNormal():
-    os.system("amixer -c 2 cset numid=3 %d%%" % robot_config.getint('tts', 'tts_volume'))
+    os.system("amixer -c %d cset numid=3 %d%%" % (robot_config.getint('tts', 'hw_num'), robot_config.getint('tts', 'tts_volume')))
 
 def handleLoudCommand(seconds):
-    os.system("amixer -c 2 cset numid=3 %d%%" % 100)
+    os.system("amixer -c %d cset numid=3 %d%%" % (robot_config.getint('tts', 'hw_num'), 100))
     schedule.single_task(seconds, changeVolumeNormal)
     
 def handle_command(args):
@@ -245,10 +246,10 @@ def handle_command(args):
             if commandArgs.type == 'motor_hat':
                 if command == 'WALL':
                     handleLoudCommand(25)
-                    os.system("aplay -D plughw:2,0 /home/pi/wall.wav")
+                    os.system("aplay -D plughw:%d,0 /home/pi/wall.wav" % robot_config.getint('tts', 'hw_num'))
                 if command == 'SOUND2':
                     handleLoudCommand(25)
-                    os.system("aplay -D plughw:2,0 /home/pi/sound2.wav")
+                    os.system("aplay -D plughw:%d,0 /home/pi/sound2.wav" % robot_config.getint('tts', 'hw_num'))
                                                         
         handlingCommand = False
        

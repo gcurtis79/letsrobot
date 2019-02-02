@@ -7,127 +7,207 @@
 #
 
 import pigpio
-pi=pigpio.pi()
+# import pysftp
+import requests
 import os
 import time
 import extended_command
 import logging
-log = logging.getLogger('LR.hardware.zerobot')
-import thread
+import schedule
+import subprocess
+import sys
+import atexit
 import BlynkLib
-blynk = BlynkLib.Blynk('86ed838111d84fb4aa4b2b51a4019cd9', '192.168.136.247', 8888)
-thread.start_new_thread(blynk.run, ())
-
 from configparser import ConfigParser
+if (sys.version_info > (3, 0)):
+    import importlib
+    import _thread as thread
+else:
+    import thread
+
 robot_config = ConfigParser()
 robot_config.readfp(open('letsrobot.conf'))
+pi = pigpio.pi()
+log = logging.getLogger('LR.hardware.zerobot')
 
-driveDelay=None
-turnDelay=None
-steeringBias=None
+stopTheMotors = 0
 
-motorPins=None
-pwm_freq=None
-pwm_range=None
-pwm_speed=None
+startTime = time.time()
 
-global motorPins
-global driveDelay
-global turnDelay
-global steeringBias
-global pwm_freq
-global pwm_range
-global pwm_speed
-motorPins = [int(robot_config.get('zerobot', 'zerobot1A')), int(robot_config.get('zerobot', 'zerobot1B')), int(robot_config.get('zerobot', 'zerobot2A')), int(robot_config.get('zerobot', 'zerobot2B'))]
-global motorPins
+wifi_SSID = str(subprocess.check_output(['iwgetid'])).split("\"")[1]
+if wifi_SSID == "QC Co-Lab":
+    hud_host = "daedalus.local"
+    hud_url = "http://daedalus.local/~gcurtis79/cgi-bin/test.cgi"
+    blynk = BlynkLib.Blynk('86ed838111d84fb4aa4b2b51a4019cd9',
+                           '192.168.136.247', 8888)
+    thread.start_new_thread(blynk.run, ())
+else:
+    hud_host = "taplop.local"
+    hud_url = "http://taplop.local/~gcurtis79/cgi-bin/test.cgi"
 
-# Quickie clamp function cuz I'm lazy. (Or maybe not)
+# motorPins = [int(robot_config.get('zerobot', 'zerobot1A')),
+#              int(robot_config.get('zerobot', 'zerobot1B')),
+#              int(robot_config.get('zerobot', 'zerobot2A')),
+#              int(robot_config.get('zerobot', 'zerobot2B'))]
+
+
 def cinc(n, smallest, largest, change):
     n += change
     return max(smallest, min(n, largest))
 
+
+# Quickie clamp function cuz I'm lazy. (Or maybe not)
+def clamp(n, smallest, largest):
+    return max(smallest, min(n, largest))
+
+
 # Save config options
 def config_save(section, param, value):
     robot_config.set(section, param, str(value))
-    #log.info('In %s, saving %s into %s.', os.getcwd(), str(value), param)
+    log.info('Setting %s/%s to %s', section, param, str(value))
     with open('letsrobot.conf', 'w') as configfile:
         robot_config.write(configfile)
         configfile.close()
 
+
 # Function for setting turn delay
 def set_turn_delay(command, args):
-    if extended_command.is_authed(args['name']) == 2: # Owner
+    global turnDelay
+    if extended_command.is_authed(args['name']) == 2:
         if len(command) > 1:
-            turnDelay=float(command[1])
+            turnDelay = float(command[1])
             blynk.virtual_write(1, turnDelay)
             config_save('zerobot', 'turnDelay', turnDelay)
-            log.info("Rotate delay set to : %d", float(command[1]))
+            log.info("Rotate delay set to : %f", float(command[1]))
+
 
 # Function for setting drive delay
 def set_drive_delay(command, args):
-    if extended_command.is_authed(args['name']) == 2: # Owner
+    global driveDelay
+    if extended_command.is_authed(args['name']) == 2:
         if len(command) > 1:
-            driveDelay=float(command[1])
+            driveDelay = float(command[1])
             blynk.virtual_write(2, driveDelay)
             config_save('zerobot', 'driveDelay', driveDelay)
-            log.info("Drive delay set to : %d", float(command[1]))
+            log.info("Drive delay set to : %f", driveDelay)
+
 
 # Function for setting drive speed
 def set_drive_speed(command, args):
-    if extended_command.is_authed(args['name']) == 2: # Owner
+    global pwm_speed
+    global hud_url
+    if extended_command.is_authed(args['name']) == 2:
         if len(command) > 1:
-            pwm_speed=int(command[1])
+            pwm_speed = clamp(int(command[1]), 100, 180)
             blynk.virtual_write(3, pwm_speed)
+            requests.post(hud_url, data={'maxspeed': pwm_speed})
             config_save('zerobot', 'pwm_speed', pwm_speed)
-            log.info("Drive speed set to : %d", int(command[1]))
+            log.info("Drive speed set to : %d", pwm_speed)
+
 
 # Function for setting steering bias
 def set_bias(command, args):
-    if extended_command.is_authed(args['name']) == 2: # Owner
+    global steeringBias
+    if extended_command.is_authed(args['name']) == 2:
         if len(command) > 1:
-            steeringBias=int(command[1])
+            steeringBias = int(command[1])
             blynk.virtual_write(4, steeringBias)
-            steeringBias=int(command[1])
-            config_save('zerobot', 'steeringBias', steeringBias)
-            log.info("Steering bias set to : %d", int(command[1]))
+            steeringBias = int(command[1])
+            requests.post(hud_url, data={'steeringbias': steeringBias})
+            config_save('zerobot', 'steeringbias', steeringBias)
+            log.info("Steering bias set to : %d", steeringBias)
+
+
+# Motor watchdog, stops motors in case of signal stall
+def stopMotors(v1=0, v2=0):
+    while (1):
+        global driveDelay
+        global stopTheMotors
+        if stopTheMotors == 1:
+            for i in range(0, 4):
+                pi.write(motorPins[i], 0)
+        if stopTheMotors == 0:
+            stopTheMotors = 1
+            time.sleep(driveDelay)
+
+
+# Battery Checker
+def checkBatt(command=0, args=0):
+    global startTime
+    global hud_url
+    reads = 0.0
+    value = 0.0
+    count = 0
+    fails = 0
+    try:
+        h = pi.i2c_open(1, 0x26)
+    except:
+        log.info("Battery check failed at pi.i2c_open")
+    else:
+        for i in range(0, 500):
+            try:
+                (its, data) = pi.i2c_zip(h, [7, 1, 3, 6, 1, 0])
+                count += 1
+                value += int(data[0])
+            except:
+                fails += 1
+        value = value/count
+        pi.i2c_close(h)
+        try:
+            forgetthis = requests.post(hud_url,
+                                       data={'battlevel': value,
+                                             'starttime': startTime})
+            blynk.virtual_write(5, round(float(value/27.8), 2))
+        except:
+            return (value, fails, reads)
+
 
 def setup(robot_config):
 
-    thread.start_new_thread(delay_blynk_sync, ())
-    
-    driveDelay = float(robot_config.getfloat('zerobot', 'driveDelay'))
-    turnDelay = float(robot_config.getfloat('zerobot', 'turnDelay'))
-    steeringBias = int(robot_config.getfloat('zerobot', 'steeringBias'))
-    pwm_freq = int(robot_config.getfloat('zerobot', 'pwm_freq'))
-    pwm_range = int(robot_config.getfloat('zerobot', 'pwm_range'))
-    pwm_speed = int(robot_config.getfloat('zerobot', 'pwm_speed'))
+    global motorPins
+    motorPins = [int(robot_config.get('zerobot', 'zerobot1A')),
+                 int(robot_config.get('zerobot', 'zerobot1B')),
+                 int(robot_config.get('zerobot', 'zerobot2A')),
+                 int(robot_config.get('zerobot', 'zerobot2B'))]
 
-    global motorPins
+    thread.start_new_thread(delay_blynk_sync, ())
+    # thread.start_new_thread(checkBatt, ())
+    schedule.task(60, thread.start_new_thread, checkBatt, ())
+
     global driveDelay
+    driveDelay = float(robot_config.getfloat('zerobot', 'driveDelay'))
     global turnDelay
+    turnDelay = float(robot_config.getfloat('zerobot', 'turnDelay'))
     global steeringBias
+    steeringBias = int(robot_config.getfloat('zerobot', 'steeringBias'))
     global pwm_freq
+    pwm_freq = int(robot_config.getfloat('zerobot', 'pwm_freq'))
     global pwm_range
+    pwm_range = int(robot_config.getfloat('zerobot', 'pwm_range'))
     global pwm_speed
-    motorPins = [int(robot_config.get('zerobot', 'zerobot1A')), int(robot_config.get('zerobot', 'zerobot1B')), int(robot_config.get('zerobot', 'zerobot2A')), int(robot_config.get('zerobot', 'zerobot2B'))]
-    global motorPins
-    
+    pwm_speed = int(robot_config.getfloat('zerobot', 'pwm_speed'))
+    global hud_url
+    forgetthis = requests.post(hud_url,
+                               data={'steeringbias': steeringBias,
+                                     'maxspeed': pwm_speed})
+
     # Activate chat commands for motor settings
-    if robot_config.getboolean('tts', 'ext_chat'): #ext_chat enabled, add motor commands
+    if robot_config.getboolean('tts', 'ext_chat'):
         extended_command.add_command('.set_turn_delay', set_turn_delay)
         extended_command.add_command('.set_drive_delay', set_drive_delay)
-        extended_command.add_command('.set_drive_speed', set_drive_speed)
+        extended_command.add_command('.set_speed', set_drive_speed)
         extended_command.add_command('.set_bias', set_bias)
-    
+        extended_command.add_command('.battery', checkBatt)
+
     # Init the pins into the array and configure them
-    for i in range(0,4):
+    for i in range(0, 4):
         pi.set_mode(motorPins[i], pigpio.OUTPUT)
         pi.write(motorPins[i], 0)
         pi.set_PWM_range(motorPins[i], pwm_range)
         pi.set_PWM_frequency(motorPins[i], pwm_freq)
 
     # Play some tones at startup
-    for i in range(0,3):
+    for i in range(0, 3):
         pi.set_PWM_frequency(motorPins[i], 800)
         pi.set_PWM_dutycycle(motorPins[i], 30)
         time.sleep(0.2)
@@ -137,10 +217,21 @@ def setup(robot_config):
     pi.set_PWM_dutycycle(motorPins[3], 30)
     time.sleep(0.5)
     pi.write(motorPins[3], 0)
+    pi.set_PWM_frequency(motorPins[i], pwm_freq)
+
+    # Motor watchdog, stops motors in case of signal stall
+    # global direction
+    # direction = 'stop'
+    # thread.start_new_thread(driveFunc, ())
+    # thread.start_new_thread(stopMotors, (0,0))
 
 
 # Delay Blynk sync
 def delay_blynk_sync():
+    global turnDelay
+    global driveDelay
+    global steeringBias
+    global pwm_speed
     time.sleep(5)
     blynk.virtual_write(1, turnDelay)
     blynk.virtual_write(2, driveDelay)
@@ -148,66 +239,140 @@ def delay_blynk_sync():
     blynk.virtual_write(4, steeringBias)
 
 
+@blynk.VIRTUAL_WRITE(0)
+def v0_write_handler(value):
+    global motorPins
+    global driveDelay
+    global turnDelay
+    global steeringBias
+    global pwm_speed
+    global pwm_freq
+    global pwm_range
+    global stopTheMotors
+    log.info("Blynk drive %s", value)
+    if value == '1':
+        pi.set_PWM_dutycycle(motorPins[0], pwm_speed-steeringBias)
+        pi.set_PWM_dutycycle(motorPins[2], pwm_speed+steeringBias)
+    elif value == '2':
+        pi.set_PWM_dutycycle(motorPins[1], pwm_speed-steeringBias)
+        pi.set_PWM_dutycycle(motorPins[3], pwm_speed+steeringBias)
+    elif value == '3':
+        pi.set_PWM_dutycycle(motorPins[0], pwm_speed-steeringBias)
+        pi.set_PWM_dutycycle(motorPins[3], pwm_speed+steeringBias)
+        time.sleep(turnDelay)
+        for i in range(0, 4):
+            pi.write(motorPins[i], 0)
+    elif value == '4':
+        pi.set_PWM_dutycycle(motorPins[1], pwm_speed-steeringBias)
+        pi.set_PWM_dutycycle(motorPins[2], pwm_speed+steeringBias)
+        time.sleep(turnDelay)
+        for i in range(0, 4):
+            pi.write(motorPins[i], 0)
+    elif value == '0':
+        for i in range(0, 4):
+            pi.write(motorPins[i], 0)
+
+
 @blynk.VIRTUAL_WRITE(1)
 def v1_write_handler(value):
-    turnDelay=float(value)
+    global turnDelay
+    turnDelay = float(value)
+    blynk.virtual_write(1, turnDelay)
     config_save('zerobot', 'turnDelay', turnDelay)
+
 
 @blynk.VIRTUAL_WRITE(2)
 def v2_write_handler(value):
-    driveDelay=float(value)
+    global driveDelay
+    driveDelay = float(value)
+    blynk.virtual_write(2, driveDelay)
     config_save('zerobot', 'driveDelay', driveDelay)
+
 
 @blynk.VIRTUAL_WRITE(3)
 def v3_write_handler(value):
-    pwm_speed=int(value)
+    global pwm_speed
+    pwm_speed = clamp(int(value), 100, 180)
+    blynk.virtual_write(3, pwm_speed)
+    requests.post(hud_url, data={'maxspeed': pwm_speed})
     config_save('zerobot', 'pwm_speed', pwm_speed)
+
 
 @blynk.VIRTUAL_WRITE(4)
 def v4_write_handler(value):
-    steeringBias=int(value)
+    global steeringBias
+    steeringBias = int(value)
+    blynk.virtual_write(4, steeringBias)
+    requests.post(hud_url, data={'steeringbias': steeringBias})
     config_save('zerobot', 'steeringBias', steeringBias)
 
+
 def move(args):
+    global motorPins
+    global driveDelay
+    global turnDelay
+    global steeringBias
+    global pwm_speed
+    global pwm_freq
+    global pwm_range
+    global stopTheMotors
+    global hud_url
+
     # Not drive commands
     if (len(args['command'].split(" ")) > 1):
-        cmd_split = args['command'].split(" ")
-        log.info('cmd_split is %s long.', len(cmd_split))
-        if cmd_split[0] == "set_bias":
-            log.info('set_bias detected, %s as arg', cmd_split[1])
-            if cmd_split[1] == "up":
-                log.info('set_bias up detected')
-                steeringBias = cinc(steeringBias, -20, 20, 1)
-            if cmd_split[1] == "dn":
-                log.info('set_bias up detected')
-                steeringBias = cinc(steeringBias, -20, 20, -1)
-            blynk.virtual_write(4, steeringBias)
-            log.info('Set steeringBias to: %s', steeringBias)
-            config_save('zerobot', 'steeringBias', steeringBias)
+        if is_authed(args['name']): # Moderator
+            cmd_split = args['command'].split(" ")
+            if cmd_split[0] == "set_drive_speed":
+                if cmd_split[1] == "up":
+                    pwm_speed = cinc(pwm_speed, 100, 180, 10)
+                if cmd_split[1] == "dn":
+                    pwm_speed = cinc(pwm_speed, 100, 180, -10)
+                blynk.virtual_write(3, pwm_speed)
+                requests.post(hud_url, data={'maxspeed': pwm_speed})
+                config_save('zerobot', 'pwm_speed', pwm_speed)
+            if cmd_split[0] == "set_bias":
+                if cmd_split[1] == "up":
+                    steeringBias = cinc(steeringBias, -20, 20, 1)
+                if cmd_split[1] == "dn":
+                    steeringBias = cinc(steeringBias, -20, 20, -1)
+                blynk.virtual_write(4, steeringBias)
+                requests.post(hud_url, data={'steeringbias': steeringBias})
+                config_save('zerobot', 'steeringbias', steeringBias)
+            if cmd_split[0] == "battery":
+                checkBatt(1)
 
-    else: # Drive commands
-        direction = args['command']
-        if direction == 'F':
-            pi.set_PWM_dutycycle(motorPins[0], pwm_speed-steeringBias)
-            pi.set_PWM_dutycycle(motorPins[2], pwm_speed+steeringBias)
-            time.sleep(driveDelay)
-            for i in range(0,4):
-                pi.write(motorPins[i], 0)
-        if direction == 'B':
-            pi.set_PWM_dutycycle(motorPins[1], pwm_speed-steeringBias)
-            pi.set_PWM_dutycycle(motorPins[3], pwm_speed+steeringBias)
-            time.sleep(driveDelay)
-            for i in range(0,4):
-                pi.write(motorPins[i], 0)
-        if direction == 'L':
-            pi.set_PWM_dutycycle(motorPins[0], pwm_speed-steeringBias)
-            pi.set_PWM_dutycycle(motorPins[3], pwm_speed+steeringBias)
-            time.sleep(turnDelay)
-            for i in range(0,4):
-                pi.write(motorPins[i], 0)
-        if direction == 'R':
-            pi.set_PWM_dutycycle(motorPins[1], pwm_speed-steeringBias)
-            pi.set_PWM_dutycycle(motorPins[2], pwm_speed+steeringBias)
-            time.sleep(turnDelay)
-            for i in range(0,4):
-                pi.write(motorPins[i], 0)
+    direction = args['command']
+    if direction == 'F':
+        pi.set_PWM_dutycycle(motorPins[0], pwm_speed-steeringBias)
+        pi.set_PWM_dutycycle(motorPins[2], pwm_speed+steeringBias)
+        time.sleep(driveDelay)
+        for i in range(0, 4):
+            pi.write(motorPins[i], 0)
+    if direction == 'B':
+        pi.set_PWM_dutycycle(motorPins[1], pwm_speed-steeringBias)
+        pi.set_PWM_dutycycle(motorPins[3], pwm_speed+steeringBias)
+        time.sleep(driveDelay)
+        for i in range(0, 4):
+            pi.write(motorPins[i], 0)
+    if direction == 'L':
+        pi.set_PWM_dutycycle(motorPins[0], pwm_speed-steeringBias)
+        pi.set_PWM_dutycycle(motorPins[3], pwm_speed+steeringBias)
+        time.sleep(turnDelay)
+        for i in range(0, 4):
+            pi.write(motorPins[i], 0)
+    if direction == 'R':
+        pi.set_PWM_dutycycle(motorPins[1], pwm_speed-steeringBias)
+        pi.set_PWM_dutycycle(motorPins[2], pwm_speed+steeringBias)
+        time.sleep(turnDelay)
+        for i in range(0, 4):
+            pi.write(motorPins[i], 0)
+    if direction == 'stop':
+        for i in range(0, 4):
+            pi.write(motorPins[i], 0)
+
+
+@atexit.register
+def zeroExit():
+    for i in range(0, 4):
+        pi.write(motorPins[i], 0)
+    subprocess.call(['rsh', 'gcurtis79@%s' % hud_host, 'bin/87156782.kill'])

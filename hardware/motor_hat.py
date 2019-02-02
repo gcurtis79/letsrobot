@@ -47,6 +47,7 @@ right = None
 straightDelay = None
 turnDelay = None
 
+hw_hum = None
 
 servoMin = [150, 150, 130]  # Min pulse length out of 4096
 servoMax = [600, 600, 270]  # Max pulse length out of 4096
@@ -204,7 +205,9 @@ def setup(robot_config):
     global right
     global straightDelay
     global turnDelay
+    global hw_num
 
+    hw_num = robot_config.getint('tts', 'hw_num')
     GPIO.setmode(GPIO.BCM)
     chargeIONumber = robot_config.getint('motor_hat', 'chargeIONumber')
     GPIO.setup(chargeIONumber, GPIO.IN)
@@ -308,4 +311,4 @@ def move( args ):
     turnOffMotors()
 #        if command == 'WALL':
 #            handleLoudCommand()
-#            os.system("aplay -D plughw:2,0 /home/pi/wall.wav")
+#            os.system("aplay -D plughw:%d,0 /home/pi/wall.wav" % hw_hum)
