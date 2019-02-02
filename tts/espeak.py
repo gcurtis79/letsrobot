@@ -43,6 +43,6 @@ def say(*args):
             voice = ('en-us+f%d -s170' % (voice_number))
         if custom_voice:
             voice = ('%s' % (custom_voice))
-        cmdLine = ('espeak -v%s -s170 --stdout "%s" | aplay -D plughw:%d,0' % (voice, str(saythis), hw_num))
+        cmdLine = ('espeak -v%s -s170 --stdout "%s" 2>/dev/null | aplay -q -D plughw:%d,0' % (voice, str(saythis), hw_num))
         os.devnull = os.system(cmdLine)
     playing = False
