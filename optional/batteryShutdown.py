@@ -27,7 +27,7 @@ def readCapacity ( bus, address = address ):
    return capacity
 
 if readCapacity(bus) < 10:
-        print "Battery below 20% - shutting down..."
+        print("Battery below 20% - shutting down...")
         os.system('echo "battery low. shutting down." | espeak --stdout | aplay -D plughw:2,0')
         os.system('echo "battery low. shutting down." | espeak --stdout | aplay -D plughw:2,0')
         os.system('echo "battery low. shutting down." | espeak --stdout | aplay -D plughw:2,0')
