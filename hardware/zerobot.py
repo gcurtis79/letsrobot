@@ -19,11 +19,8 @@ import sys
 import atexit
 import BlynkLib
 from configparser import ConfigParser
-if (sys.version_info > (3, 0)):
-    import importlib
-    import _thread as thread
-else:
-    import thread
+import importlib
+import _thread as thread
 
 robot_config = ConfigParser()
 robot_config.readfp(open('letsrobot.conf'))
@@ -138,28 +135,27 @@ def checkBatt(command=0, args=0):
     reads = 0.0
     value = 0.0
     count = 0
-    fails = 0
     try:
         h = pi.i2c_open(1, 0x26)
     except:
         log.info("Battery check failed at pi.i2c_open")
     else:
-        for i in range(0, 500):
+        while count < 500:
             try:
-                (its, data) = pi.i2c_zip(h, [7, 1, 3, 6, 1, 0])
+                (os.devnull, data) = pi.i2c_zip(h, [7, 1, 3, 6, 1, 0])
                 count += 1
                 value += int(data[0])
             except:
-                fails += 1
+                log.debug("I2C Read failure - just ignore")
         value = value/count
         pi.i2c_close(h)
         try:
-            forgetthis = requests.post(hud_url,
+            os.devnull = requests.post(hud_url,
                                        data={'battlevel': value,
                                              'starttime': startTime})
             blynk.virtual_write(5, round(float(value/27.8), 2))
         except:
-            return (value, fails, reads)
+            return (value, reads)
 
 
 def setup(robot_config):
@@ -187,7 +183,7 @@ def setup(robot_config):
     global pwm_speed
     pwm_speed = int(robot_config.getfloat('zerobot', 'pwm_speed'))
     global hud_url
-    forgetthis = requests.post(hud_url,
+    os.devnull = requests.post(hud_url,
                                data={'steeringbias': steeringBias,
                                      'maxspeed': pwm_speed})
 
@@ -320,7 +316,7 @@ def move(args):
 
     # Not drive commands
     if (len(args['command'].split(" ")) > 1):
-        if is_authed(args['name']): # Moderator
+        if extended_command.is_authed(args['name']): # Moderator
             cmd_split = args['command'].split(" ")
             if cmd_split[0] == "set_drive_speed":
                 if cmd_split[1] == "up":
