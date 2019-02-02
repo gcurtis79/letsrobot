@@ -44,5 +44,5 @@ def say(*args):
         if custom_voice:
             voice = ('%s' % (custom_voice))
         cmdLine = ('espeak -v%s -s170 --stdout "%s" | aplay -D plughw:%d,0' % (voice, str(saythis), hw_num))
-        forgetme = os.system(cmdLine)
+        os.devnull = os.system(cmdLine)
     playing = False
