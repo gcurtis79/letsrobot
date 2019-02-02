@@ -21,6 +21,7 @@ import BlynkLib
 from configparser import ConfigParser
 import importlib
 import _thread as thread
+import tts.tts as tts
 
 robot_config = ConfigParser()
 robot_config.readfp(open('letsrobot.conf'))
@@ -371,4 +372,5 @@ def move(args):
 def zeroExit():
     for i in range(0, 4):
         pi.write(motorPins[i], 0)
+    tts.say("Shutting down")
     subprocess.call(['rsh', 'gcurtis79@%s' % hud_host, 'bin/87156782.kill'])
