@@ -168,24 +168,23 @@ def exclusive_handler(command, args):
 
     log.debug("exclusive_handler : %s %s", command, args)
 
-    if len(command) > 2:
+    if len(command) >= 2:
         if is_authed(args['name']) == 2: # Owner
-            user = command[2]
-            if command[1] == 'user':
-                exclusive_user = user
-                exclusive = True
-                log.info("%s given exclusive control", user)
-                return
-            elif command[1] == 'off':
+            if command[1] == 'off':
                 exclusive = False
                 log.info("Exclusive control disabled")
                 return
-            elif command[1] == 'mods':
-                if user == 'on':
+            elif len(command) < 3:
+                exclusive_user = command[1]
+                exclusive = True
+                log.info("%s given exclusive control", command[1])
+                return
+            elif (len(command) >= 2) and (command[1] == 'mods'):
+                if command[2] == 'on':
                    exclusive_mods = True
                    log.info("Enabling mod control during exclusive")
                    return
-                elif user == 'off':
+                elif command[2] == 'off':
                    exclusive_mods = False
                    log.info("Disabling mod control during exclusive")
                    return
@@ -401,7 +400,11 @@ def handler(args):
 def move_auth(args):
     user = args['user']
     anon = args['anonymous']
+<<<<<<< HEAD
 
+=======
+   
+>>>>>>> 0111c17a2f88e8b94faaf3629302034dd5b387d7
     # Check if stationary mode is enabled
     if stationary:
         direction = args['command']
@@ -416,9 +419,10 @@ def move_auth(args):
             return
 
     # check if exclusive control is enabled
-    if exclusive:
+    if exclusive and (user != owner):
         if exclusive_mods:
             if user not in mods:
+<<<<<<< HEAD
                 if (user != exclusive_user) and (user != owner):
                     log.debug("%s not authed for exclusive control", user)
                     return
@@ -427,6 +431,17 @@ def move_auth(args):
             return
 
 
+=======
+                if user != exclusive_user: 
+                    log.debug("%s not authed for exclusive control", user)
+                    return
+        if user != exclusive_user: 
+            log.debug("%s not authed for exclusive control", user)
+            return
+    elif exclusive:
+        log.debug("%s %s is authed", user, args['command'])
+               
+>>>>>>> 0111c17a2f88e8b94faaf3629302034dd5b387d7
     if anon_control == False and anon:
         return
     elif dev_mode_mods:
