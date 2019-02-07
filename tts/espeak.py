@@ -28,6 +28,7 @@ def setup(robot_config):
 
 def say(*args):
     message = args[0]
+<<<<<<< HEAD
     global playing
     if not max_queue and len(_message_queue) <= max_queue:  # Queue length control
         _message_queue.append(message)
@@ -43,6 +44,18 @@ def say(*args):
             voice = ('en-us+f%d -s170' % (voice_number))
         if custom_voice:
             voice = ('%s' % (custom_voice))
-        cmdLine = ('espeak -v%s -s170 --stdout "%s" | aplay -D plughw:%d,0' % (voice, str(saythis), hw_num))
+        cmdLine = ('espeak -v%s -s170 --stdout "%s" 2>/dev/null | aplay -q -D plughw:%d,0' % (voice, str(saythis), hw_num))
         os.devnull = os.system(cmdLine)
     playing = False
+=======
+    tempFilePath = os.path.join(tempDir, "text_" + str(uuid.uuid4()))
+    f = open(tempFilePath, "w")
+    f.write(message)
+    f.close()
+
+    if male:
+        os.system('cat ' + tempFilePath + ' | espeak -v en-us+m%d -s 170 --stdout | aplay -D plughw:%d,0' %(voice_number, hw_num) )
+    else:
+        os.system('cat ' + tempFilePath + ' | espeak -v en-us+f%d -s 170 --stdout | aplay -D plughw:%d,0' % (voice_number, hw_num) )
+    os.remove(tempFilePath)    
+>>>>>>> 0111c17a2f88e8b94faaf3629302034dd5b387d7
