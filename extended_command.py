@@ -400,11 +400,7 @@ def handler(args):
 def move_auth(args):
     user = args['user']
     anon = args['anonymous']
-<<<<<<< HEAD
-
-=======
    
->>>>>>> 0111c17a2f88e8b94faaf3629302034dd5b387d7
     # Check if stationary mode is enabled
     if stationary:
         direction = args['command']
@@ -422,16 +418,6 @@ def move_auth(args):
     if exclusive and (user != owner):
         if exclusive_mods:
             if user not in mods:
-<<<<<<< HEAD
-                if (user != exclusive_user) and (user != owner):
-                    log.debug("%s not authed for exclusive control", user)
-                    return
-        if (user != exclusive_user) and (user != owner):
-            log.debug("%s not authed for exclusive control", user)
-            return
-
-
-=======
                 if user != exclusive_user: 
                     log.debug("%s not authed for exclusive control", user)
                     return
@@ -441,7 +427,6 @@ def move_auth(args):
     elif exclusive:
         log.debug("%s %s is authed", user, args['command'])
                
->>>>>>> 0111c17a2f88e8b94faaf3629302034dd5b387d7
     if anon_control == False and anon:
         return
     elif dev_mode_mods:
