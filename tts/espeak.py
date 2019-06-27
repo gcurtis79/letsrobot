@@ -9,6 +9,7 @@ male = None
 voice_number = None
 hw_num = None
 custom_voice = None
+tempDir = None
 
 max_queue = False
 playing = False
