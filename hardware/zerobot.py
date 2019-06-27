@@ -131,10 +131,10 @@ def setup(robot_config):
     pwm_range = int(robot_config.getfloat('zerobot', 'pwm_range'))
     global pwm_speed
     pwm_speed = int(robot_config.getfloat('zerobot', 'pwm_speed'))
-    global hud_url
-    os.devnull = requests.post(hud_url,
-                               data={'steeringbias': steeringBias,
-                                     'maxspeed': pwm_speed})
+    #global hud_url
+    #os.devnull = requests.post(hud_url,
+    #                           data={'steeringbias': steeringBias,
+    #                                 'maxspeed': pwm_speed})
 
     # Activate chat commands for motor settings
     if robot_config.getboolean('tts', 'ext_chat'):
@@ -188,16 +188,16 @@ def move(args):
                     pwm_speed = cinc(pwm_speed, 100, 180, 10)
                 if cmd_split[1] == "dn":
                     pwm_speed = cinc(pwm_speed, 100, 180, -10)
-                blynk.virtual_write(3, pwm_speed)
-                requests.post(hud_url, data={'maxspeed': pwm_speed})
+                #blynk.virtual_write(3, pwm_speed)
+                #requests.post(hud_url, data={'maxspeed': pwm_speed})
                 config_save('zerobot', 'pwm_speed', pwm_speed)
             if cmd_split[0] == "set_bias":
                 if cmd_split[1] == "up":
                     steeringBias = cinc(steeringBias, -20, 20, 1)
                 if cmd_split[1] == "dn":
                     steeringBias = cinc(steeringBias, -20, 20, -1)
-                blynk.virtual_write(4, steeringBias)
-                requests.post(hud_url, data={'steeringbias': steeringBias})
+                #blynk.virtual_write(4, steeringBias)
+                #requests.post(hud_url, data={'steeringbias': steeringBias})
                 config_save('zerobot', 'steeringbias', steeringBias)
             if cmd_split[0] == "battery":
                 checkBatt(1)
@@ -237,4 +237,4 @@ def zeroExit():
     for i in range(0, 4):
         pi.write(motorPins[i], 0)
     tts.say("Shutting down")
-    subprocess.call(['rsh', 'gcurtis79@%s' % hud_host, 'bin/87156782.kill'])
+    #subprocess.call(['rsh', 'gcurtis79@%s' % hud_host, 'bin/87156782.kill'])
