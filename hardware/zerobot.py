@@ -204,26 +204,26 @@ def move(args):
 
     direction = args['command']
     if direction == 'F':
-        pi.set_PWM_dutycycle(motorPins[0], pwm_speed-steeringBias)
-        pi.set_PWM_dutycycle(motorPins[2], pwm_speed+steeringBias)
+        pi.set_PWM_dutycycle(motorPins[0], clamp(pwm_speed-steeringBias, 0, 255))
+        pi.set_PWM_dutycycle(motorPins[2], clamp(pwm_speed+steeringBias, 0, 255))
         time.sleep(driveDelay)
         for i in range(0, 4):
             pi.write(motorPins[i], 0)
     if direction == 'B':
-        pi.set_PWM_dutycycle(motorPins[1], pwm_speed-steeringBias)
-        pi.set_PWM_dutycycle(motorPins[3], pwm_speed+steeringBias)
+        pi.set_PWM_dutycycle(motorPins[1], clamp(pwm_speed-steeringBias, 0, 255))
+        pi.set_PWM_dutycycle(motorPins[3], clamp(pwm_speed+steeringBias, 0, 255))
         time.sleep(driveDelay)
         for i in range(0, 4):
             pi.write(motorPins[i], 0)
     if direction == 'L':
-        pi.set_PWM_dutycycle(motorPins[0], (pwm_speed-steeringBias)*1.5)
-        #pi.set_PWM_dutycycle(motorPins[3], (pwm_speed+steeringBias)*1.5)
+        pi.set_PWM_dutycycle(motorPins[0], clamp((pwm_speed-steeringBias)*1.5, 0,255))
+        #pi.set_PWM_dutycycle(motorPins[3], clamp((pwm_speed+steeringBias)*1.5, 0,255))
         time.sleep(turnDelay)
         for i in range(0, 4):
             pi.write(motorPins[i], 0)
     if direction == 'R':
-        #pi.set_PWM_dutycycle(motorPins[1], (pwm_speed-steeringBias)*1.5)
-        pi.set_PWM_dutycycle(motorPins[2], (pwm_speed-steeringBias)*1.5)
+        #pi.set_PWM_dutycycle(motorPins[1], clamp((pwm_speed-steeringBias)*1.5, 0,255))
+        pi.set_PWM_dutycycle(motorPins[2], clamp((pwm_speed+steeringBias)*1.5, 0,255))
         time.sleep(turnDelay)
         for i in range(0, 4):
             pi.write(motorPins[i], 0)
