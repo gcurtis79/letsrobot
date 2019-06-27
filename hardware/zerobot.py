@@ -76,7 +76,7 @@ def set_drive_delay(command, args):
 # Function for setting drive speed
 def set_drive_speed(command, args):
     global pwm_speed
-    global hud_url
+    #global hud_url
     if extended_command.is_authed(args['name']) == 2:
         if len(command) > 1:
             pwm_speed = clamp(int(command[1]), 100, 180)
