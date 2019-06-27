@@ -17,7 +17,7 @@ import schedule
 import subprocess
 import sys
 import atexit
-import BlynkLib
+#import BlynkLib
 from configparser import ConfigParser
 import importlib
 import _thread as thread
@@ -31,23 +31,6 @@ log = logging.getLogger('LR.hardware.zerobot')
 stopTheMotors = 0
 
 startTime = time.time()
-
-wifi_SSID = str(subprocess.check_output(['iwgetid'])).split("\"")[1]
-if wifi_SSID == "QC Co-Lab":
-    hud_host = "daedalus.local"
-    hud_url = "http://daedalus.local/~gcurtis79/cgi-bin/test.cgi"
-    blynk = BlynkLib.Blynk('86ed838111d84fb4aa4b2b51a4019cd9',
-                           '192.168.136.247', 8888)
-    thread.start_new_thread(blynk.run, ())
-else:
-    hud_host = "taplop.local"
-    hud_url = "http://taplop.local/~gcurtis79/cgi-bin/test.cgi"
-
-# motorPins = [int(robot_config.get('zerobot', 'zerobot1A')),
-#              int(robot_config.get('zerobot', 'zerobot1B')),
-#              int(robot_config.get('zerobot', 'zerobot2A')),
-#              int(robot_config.get('zerobot', 'zerobot2B'))]
-
 
 def cinc(n, smallest, largest, change):
     n += change
@@ -128,37 +111,6 @@ def stopMotors(v1=0, v2=0):
             stopTheMotors = 1
             time.sleep(driveDelay)
 
-
-# Battery Checker
-def checkBatt(command=0, args=0):
-    global startTime
-    global hud_url
-    reads = 0.0
-    value = 0.0
-    count = 0
-    try:
-        h = pi.i2c_open(1, 0x26)
-    except:
-        log.info("Battery check failed at pi.i2c_open")
-    else:
-        while count < 500:
-            try:
-                (os.devnull, data) = pi.i2c_zip(h, [7, 1, 3, 6, 1, 0])
-                count += 1
-                value += int(data[0])
-            except:
-                log.debug("I2C Read failure - just ignore")
-        value = value/count
-        pi.i2c_close(h)
-        try:
-            os.devnull = requests.post(hud_url,
-                                       data={'battlevel': value,
-                                             'starttime': startTime})
-            blynk.virtual_write(5, round(float(value/27.8), 2))
-        except:
-            return (value, reads)
-
-
 def setup(robot_config):
 
     global motorPins
@@ -166,10 +118,6 @@ def setup(robot_config):
                  int(robot_config.get('zerobot', 'zerobot1B')),
                  int(robot_config.get('zerobot', 'zerobot2A')),
                  int(robot_config.get('zerobot', 'zerobot2B'))]
-
-    thread.start_new_thread(delay_blynk_sync, ())
-    # thread.start_new_thread(checkBatt, ())
-    schedule.task(60, thread.start_new_thread, checkBatt, ())
 
     global driveDelay
     driveDelay = float(robot_config.getfloat('zerobot', 'driveDelay'))
@@ -194,7 +142,6 @@ def setup(robot_config):
         extended_command.add_command('.set_drive_delay', set_drive_delay)
         extended_command.add_command('.set_speed', set_drive_speed)
         extended_command.add_command('.set_bias', set_bias)
-        extended_command.add_command('.battery', checkBatt)
 
     # Init the pins into the array and configure them
     for i in range(0, 4):
@@ -222,88 +169,6 @@ def setup(robot_config):
     # thread.start_new_thread(driveFunc, ())
     # thread.start_new_thread(stopMotors, (0,0))
 
-
-# Delay Blynk sync
-def delay_blynk_sync():
-    global turnDelay
-    global driveDelay
-    global steeringBias
-    global pwm_speed
-    time.sleep(5)
-    blynk.virtual_write(1, turnDelay)
-    blynk.virtual_write(2, driveDelay)
-    blynk.virtual_write(3, pwm_speed)
-    blynk.virtual_write(4, steeringBias)
-
-
-@blynk.VIRTUAL_WRITE(0)
-def v0_write_handler(value):
-    global motorPins
-    global driveDelay
-    global turnDelay
-    global steeringBias
-    global pwm_speed
-    global pwm_freq
-    global pwm_range
-    global stopTheMotors
-    log.info("Blynk drive %s", value)
-    if value == '1':
-        pi.set_PWM_dutycycle(motorPins[0], pwm_speed-steeringBias)
-        pi.set_PWM_dutycycle(motorPins[2], pwm_speed+steeringBias)
-    elif value == '2':
-        pi.set_PWM_dutycycle(motorPins[1], pwm_speed-steeringBias)
-        pi.set_PWM_dutycycle(motorPins[3], pwm_speed+steeringBias)
-    elif value == '3':
-        pi.set_PWM_dutycycle(motorPins[0], pwm_speed-steeringBias)
-        pi.set_PWM_dutycycle(motorPins[3], pwm_speed+steeringBias)
-        time.sleep(turnDelay)
-        for i in range(0, 4):
-            pi.write(motorPins[i], 0)
-    elif value == '4':
-        pi.set_PWM_dutycycle(motorPins[1], pwm_speed-steeringBias)
-        pi.set_PWM_dutycycle(motorPins[2], pwm_speed+steeringBias)
-        time.sleep(turnDelay)
-        for i in range(0, 4):
-            pi.write(motorPins[i], 0)
-    elif value == '0':
-        for i in range(0, 4):
-            pi.write(motorPins[i], 0)
-
-
-@blynk.VIRTUAL_WRITE(1)
-def v1_write_handler(value):
-    global turnDelay
-    turnDelay = float(value)
-    blynk.virtual_write(1, turnDelay)
-    config_save('zerobot', 'turnDelay', turnDelay)
-
-
-@blynk.VIRTUAL_WRITE(2)
-def v2_write_handler(value):
-    global driveDelay
-    driveDelay = float(value)
-    blynk.virtual_write(2, driveDelay)
-    config_save('zerobot', 'driveDelay', driveDelay)
-
-
-@blynk.VIRTUAL_WRITE(3)
-def v3_write_handler(value):
-    global pwm_speed
-    pwm_speed = clamp(int(value), 100, 180)
-    blynk.virtual_write(3, pwm_speed)
-    requests.post(hud_url, data={'maxspeed': pwm_speed})
-    config_save('zerobot', 'pwm_speed', pwm_speed)
-
-
-@blynk.VIRTUAL_WRITE(4)
-def v4_write_handler(value):
-    global steeringBias
-    steeringBias = int(value)
-    blynk.virtual_write(4, steeringBias)
-    requests.post(hud_url, data={'steeringbias': steeringBias})
-    config_save('zerobot', 'steeringBias', steeringBias)
-
-
 def move(args):
     global motorPins
     global driveDelay
@@ -313,7 +178,6 @@ def move(args):
     global pwm_freq
     global pwm_range
     global stopTheMotors
-    global hud_url
 
     # Not drive commands
     if (len(args['command'].split(" ")) > 1):
