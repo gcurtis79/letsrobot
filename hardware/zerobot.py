@@ -57,7 +57,7 @@ def set_turn_delay(command, args):
     if extended_command.is_authed(args['name']) == 2:
         if len(command) > 1:
             turnDelay = float(command[1])
-            blynk.virtual_write(1, turnDelay)
+            #blynk.virtual_write(1, turnDelay)
             config_save('zerobot', 'turnDelay', turnDelay)
             log.info("Rotate delay set to : %f", float(command[1]))
 
@@ -68,7 +68,7 @@ def set_drive_delay(command, args):
     if extended_command.is_authed(args['name']) == 2:
         if len(command) > 1:
             driveDelay = float(command[1])
-            blynk.virtual_write(2, driveDelay)
+            #blynk.virtual_write(2, driveDelay)
             config_save('zerobot', 'driveDelay', driveDelay)
             log.info("Drive delay set to : %f", driveDelay)
 
@@ -80,8 +80,8 @@ def set_drive_speed(command, args):
     if extended_command.is_authed(args['name']) == 2:
         if len(command) > 1:
             pwm_speed = clamp(int(command[1]), 100, 180)
-            blynk.virtual_write(3, pwm_speed)
-            requests.post(hud_url, data={'maxspeed': pwm_speed})
+            #blynk.virtual_write(3, pwm_speed)
+            #requests.post(hud_url, data={'maxspeed': pwm_speed})
             config_save('zerobot', 'pwm_speed', pwm_speed)
             log.info("Drive speed set to : %d", pwm_speed)
 
@@ -92,9 +92,9 @@ def set_bias(command, args):
     if extended_command.is_authed(args['name']) == 2:
         if len(command) > 1:
             steeringBias = int(command[1])
-            blynk.virtual_write(4, steeringBias)
+            #blynk.virtual_write(4, steeringBias)
             steeringBias = int(command[1])
-            requests.post(hud_url, data={'steeringbias': steeringBias})
+            #requests.post(hud_url, data={'steeringbias': steeringBias})
             config_save('zerobot', 'steeringbias', steeringBias)
             log.info("Steering bias set to : %d", steeringBias)
 
@@ -199,8 +199,8 @@ def move(args):
                 #blynk.virtual_write(4, steeringBias)
                 #requests.post(hud_url, data={'steeringbias': steeringBias})
                 config_save('zerobot', 'steeringbias', steeringBias)
-            if cmd_split[0] == "battery":
-                checkBatt(1)
+            #if cmd_split[0] == "battery":
+            #    checkBatt(1)
 
     direction = args['command']
     if direction == 'F':
@@ -217,12 +217,12 @@ def move(args):
             pi.write(motorPins[i], 0)
     if direction == 'L':
         pi.set_PWM_dutycycle(motorPins[0], (pwm_speed-steeringBias)*1.5)
-        pi.set_PWM_dutycycle(motorPins[3], (pwm_speed+steeringBias)*1.5)
+        #pi.set_PWM_dutycycle(motorPins[3], (pwm_speed+steeringBias)*1.5)
         time.sleep(turnDelay)
         for i in range(0, 4):
             pi.write(motorPins[i], 0)
     if direction == 'R':
-        pi.set_PWM_dutycycle(motorPins[1], (pwm_speed-steeringBias)*1.5)
+        #pi.set_PWM_dutycycle(motorPins[1], (pwm_speed-steeringBias)*1.5)
         pi.set_PWM_dutycycle(motorPins[2], (pwm_speed-steeringBias)*1.5)
         time.sleep(turnDelay)
         for i in range(0, 4):
